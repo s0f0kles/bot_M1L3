@@ -4,6 +4,8 @@ import re
 
 bot = telebot.TeleBot(token) 
 
+bad_words = ['капибара', 'собака', 'нельза']  # список запрещённых слов
+user_warnings = {}
 @bot.message_handler(commands=['start'])
 def start(message):
     bot.reply_to(message, "Привет! Я бот для управления чатом.")
@@ -54,9 +56,36 @@ def handle_member_left(message):
     # Если нужно, можно сохранить информацию или выполнить другие действия
     print(f"Пользователь {left_user.id} покинул чат {chat_id}")
 
-@bot.message_handler(content_types=['new_chat_members'])
-def make_some(message):
-    bot.send_message(message.chat.id, 'I accepted a new user!')
-    bot.approve_chat_join_request(message.chat.id, message.from_user.id)
+@bot.message_handler(func=lambda message: True)
+def handle_messages(message):
+    chat_id = message.chat.id
+    user_id = message.from_user.id
+
+    if contains_bad_words(message.text):
+        process_bad_words(message, user_id, chat_id)
+    else:
+        bot.reply_to(message, "Сообщение принято. Спасибо за соблюдение правил.")
+
+def contains_bad_words(text):
+    """Проверяет текст на наличие запрещённых слов."""
+    return any(bad_word in text.lower() for bad_word in bad_words)
+
+def process_bad_words(message, user_id, chat_id):
+    """Обрабатывает сообщение, содержащее ненормативную лексику."""
+    # Увеличиваем количество предупреждений для пользователя
+    if user_id in user_warnings:
+        user_warnings[user_id] += 1
+    else:
+        user_warnings[user_id] = 1
+
+    # Если пользователь нарушает впервые, предупреждаем его
+    if user_warnings[user_id] == 1:
+        bot.reply_to(message, "Предупреждение: Пожалуйста, воздержитесь от использования ненормативной лексики.")
+    # Если нарушение происходит второй раз, баним пользователя
+    elif user_warnings[user_id] >= 2:
+        user_status = bot.get_chat_member(chat_id, user_id).status
+        if user_status != 'administrator' and user_status != 'creator':
+            bot.ban_chat_member(chat_id, user_id)
+            bot.reply_to(message, f"Пользователь @{message.from_user.username} был забанен за многократное использование ненормативной лексики.")
 
 bot.infinity_polling(none_stop=True)
