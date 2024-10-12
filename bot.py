@@ -54,5 +54,9 @@ def handle_member_left(message):
     # Если нужно, можно сохранить информацию или выполнить другие действия
     print(f"Пользователь {left_user.id} покинул чат {chat_id}")
 
+@bot.message_handler(content_types=['new_chat_members'])
+def make_some(message):
+    bot.send_message(message.chat.id, 'I accepted a new user!')
+    bot.approve_chat_join_request(message.chat.id, message.from_user.id)
 
 bot.infinity_polling(none_stop=True)
